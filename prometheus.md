@@ -81,3 +81,89 @@ To check the status of Prometheus run the following command:
 Issues with Prometheus or are unable to start it. The easiest way to find the problem is to use the journalctl command and search for errors.
 
         journalctl -u prometheus -f --no-pager
+
+# Install Node Exporter on Ubuntu 22.04
+
+Create a system user for Node Exporter 
+
+        sudo useradd \
+        --system \
+        --no-create-home \
+        --shell /bin/false node_exporter
+Use the wget command to download the binary.
+
+        wget https://github.com/prometheus/node_exporter/releases/download/v1.6.1/node_exporter-1.6.1.linux-amd64.tar.gz
+Extract the node exporter from the archive.
+
+        tar -xvf node_exporter-1.6.1.linux-amd64.tar.gz
+Move binary to the /usr/local/bin.
+
+        sudo mv \
+        node_exporter-1.6.1.linux-amd64/node_exporter \
+        /usr/local/bin/
+Clean up, and delete node_exporter archive and a folder
+
+        rm -rf node_exporter*
+Verify that you can run the binary
+
+        node_exporter --version
+collector.logind We're going to enable the login controller
+Next, create systemd unit file
+
+        sudo vim /etc/systemd/system/node_exporter.service
+node_exporter.service
+
+        [Unit]
+        Description=Node Exporter
+        Wants=network-online.target
+        After=network-online.target
+        
+        StartLimitIntervalSec=500
+        StartLimitBurst=5
+        
+        [Service]
+        User=node_exporter
+        Group=node_exporter
+        Type=simple
+        Restart=on-failure
+        RestartSec=5s
+        ExecStart=/usr/local/bin/node_exporter \
+            --collector.logind
+        
+        [Install]
+        WantedBy=multi-user.target
+To automatically start the Node Exporter after reboot, enable the service
+
+        sudo systemctl enable node_exporter
+Start the Node Exporter
+
+        sudo systemctl start node_exporter
+Check the status of Node Exporter with the following command
+
+        sudo systemctl status node_exporter
+If you have any issues, check logs with journalctl
+
+        journalctl -u node_exporter -f --no-pager
+To create a static target, you need to add job_name with static_configs.
+
+        sudo vim /etc/prometheus/prometheus.yml
+prometheus.yml
+
+          - job_name: node_export
+            static_configs:
+              - targets: ["localhost:9100"]
+Check if the config is valid
+
+        promtool check config /etc/prometheus/prometheus.yml
+POST request to reload the config
+
+        curl -X POST http://localhost:9090/-/reload
+
+
+
+
+
+
+
+
+    
